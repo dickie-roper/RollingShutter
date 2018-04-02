@@ -1,0 +1,219 @@
+---
+title: "The rolling shutter and the propellor"
+subtitle: A study in R
+output:
+  html_document:
+    code_folding: show
+    df_print: paged
+    fig_height: 6
+    fig_width: 6
+    highlight: textmate
+    theme: lumen
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+  pdf_document:
+    toc: yes
+---
+
+**It's still not quite right (discontinuity when the shutter is parallel to the propellor)...in fact, simulating it this way may never get rid of that problem....hmmmpf**
+
+```{r, echo=F}
+knitr::opts_chunk$set(fig.align = "center")
+options(width = 1000)
+```
+# Introduction
+I recently had the pleasure of flying on a **Bombardier Dash 8** plane whilst travelling to see my parents for the Christmas holidays. During that flight, I was reminded of an interetsing phenomenon that occurs when you try take a photo of an object moving at fast speeds (relative to the shutter on the camera). More specifically, when you try take a photo of an object moving at fast speeds with a camera that employs a **rolling shutter** (which is most mobile phone cameras).
+
+Due to the fact that the shutter 'rolls' from one side of the picture to the other, objects that significantly change position within the time it takes for the shutter to fully 'roll' from one side to the other, tend to appear distorted in the final photograph.
+
+I was reminded of this phenomenon when I took a photograph of the propellor during the flight, seeing a 'bendy' distorted picture of the propellor blades on my phone. During the rest of the flight I started to think how to replicate this effect in simulation, with following code being the outcome.
+
+# The functions {.tabset .tabset-fade}
+## `propPosition()`
+Returns a list of the `x` and `y` position of a point sitting at the end of a line of length 1 (a propellor in this case). These coordinates are returned given the angular frequency at which the propellor is spinning `prop.freq`, the starting angle (offset from posiitve y=0) `initial.theta` in radians and the time in seconds `time`.
+
+```{r}
+propPosition <- function(time, prop.freq, init.theta){
+  
+  w <- 2 * pi * prop.freq
+  x <- cos((w * time) + init.theta)
+  y <- sin((w * time) + init.theta)
+  
+  return(list(x = x, y = y, x.y = c(x, y)))
+}
+```
+
+## `ShutterSequences()`
+Returns a dataframe with `n.steps` rows and two columns. Column `position.shutter` runs from -1 to 1 in `n.steps` (this can be thought of as the shutter position  between -1 and 1). Column `time.shutter` runs from 0 to `shutter.time` in `n.steps` (this can be thought of as the time at which the shutter is at each position for -1 to 1, with `time.shutter` being the total time that the shutter takes to pass from -1 to 1).
+```{r}
+ShutterSequences <- function(n.steps, shutter.time){
+  
+  data.frame(
+    position.shutter = seq(1, -1, l=n.steps),
+    time.shutter = seq(0, shutter.time, l=n.steps)
+    )
+}
+```
+
+
+## `PhotoValues()`
+Creates the positions of the points in the final 'photograph'. This function takes the shutter time and position sequences and returns the y-coordinate of the point where the 'propeller' meets the 'shutter'.
+
+```{r}
+
+PhotoValues <- function(time.shutter, position.shutter, prop.freq, init.theta){
+  
+  prop.x <- propPosition(time=time.shutter, prop.freq=prop.freq, init.theta=init.theta)[["x"]]
+  prop.y <- propPosition(time=time.shutter, prop.freq=prop.freq, init.theta=init.theta)[["y"]]
+  grad <- prop.y/prop.x
+  position.shutter/grad
+
+}
+```
+
+## `Photo()`
+This final function runs each of the three previous functions and returns a plot of the photograph.
+```{r}
+Photo <- function(n.steps=1000, shutter.speed=1, prop.freq=1, plot=T){
+  
+  d <- ShutterSequences(n.steps=n.steps, shutter.time=shutter.speed)
+  
+  d$prop.1 <- PhotoValues(time.shutter=d$time.shutter,
+                          position.shutter=d$position.shutter,
+                          prop.freq = prop.freq,
+                          init.theta=0)
+  
+  d$prop.2 <- PhotoValues(time.shutter=d$time.shutter,
+                          position.shutter=d$position.shutter,
+                          prop.freq = prop.freq,
+                          init.theta=(2*pi/3))
+  
+  d$prop.3 <- PhotoValues(time.shutter=d$time.shutter,
+                          position.shutter=d$position.shutter,
+                          prop.freq = prop.freq,
+                          init.theta=(4*pi/3))
+  d_0 <<- d
+  
+  # Filter to only area of propellor
+  d1 <<- d[d$prop.1^2 + d$position.shutter^2 < 1,]
+  d2 <<- d[d$prop.2^2 + d$position.shutter^2 < 1,]
+  d3 <<- d[d$prop.3^2 + d$position.shutter^2 < 1,]
+  
+  # Generate plot
+  if(plot==T){
+  plot(d1$prop.1, d1$position.shutter,
+       panel.first = grid(),
+       asp=1, 
+       pch=21,
+       xlim=c(-1,1), 
+       ylim=c(-1,1),
+       xlab="", ylab="",
+       cex=0.3,
+       bg=1,
+       cex.main=0.8,
+       axes=F,
+       sub = paste("Shutter speed [s] = ", round(shutter.speed,3),
+                    ", Prop. frequency [rps] = ", prop.freq, sep=""))
+  
+  axis(1, seq(-1,1,by=0.5))
+  axis(2, seq(-1,1,by=0.5))
+  points(d2$prop.2, d2$position.shutter, cex=0.3, pch=21, bg=1)
+  points(d3$prop.3, d3$position.shutter, cex=0.3, pch=21, bg=1)
+  
+  oc <- data.frame(x=cos(seq(0, 2*pi, l=100)), y=sin(seq(0, 2*pi, l=100)))
+  ic <- data.frame(x=0.2*cos(seq(0, 2*pi, l=50)), y=0.2*sin(seq(0, 2*pi, l=50)))
+  
+  polygon(oc$x, oc$y, border=1, lty=2)
+  polygon(ic$x, ic$y, col=1)
+  }
+
+}
+```
+
+# Visualisation
+Using the `Photo()` function to image propellors rotating at different frequencies (at a fixed shutter speed).
+
+```{r, fig.height=10}
+par(mfrow=c(3,2))
+
+Photo(prop.freq=0.5)
+Photo(prop.freq=1)
+Photo(prop.freq=1.5)
+Photo(prop.freq=2)
+Photo(prop.freq=2.5)
+Photo(prop.freq=3)
+```
+
+# Animate
+## Animate propellor frequencies
+Animate `Photo()` through many propellor frequencies at a fixed shutter speed.
+```{r, "anim1", fig.show='animate', interval=0.05, aniopts="controls, loop", eval=T, cache=T}
+freqs <- seq(0,3,by=0.01)
+for (i in seq_along(freqs)){
+  Photo(n.steps=1000, prop.freq=freqs[i], shutter.speed = 1)}
+```
+
+## Animate shutter movement
+Animate the shutter moevement for a given propellor frequency and shutter speed.
+```{r, "anim2", fig.show='animate', interval=0.05, aniopts="controls, loop", eval=T, cache=T}
+my.freq <- 1.5
+my.ss <- 1
+my.n <- 700
+
+Photo(prop.freq=my.freq, shutter.speed = my.ss, n.steps = my.n, plot=F)
+
+# Replace points that would fall outside the photp with NA so they dont plot
+d_0$prop.1[sqrt(d_0$prop.1^2 + d_0$position.shutter^2) >= 1] <- NA 
+d_0$prop.2[sqrt(d_0$prop.2^2 + d_0$position.shutter^2) >= 1] <- NA 
+d_0$prop.3[sqrt(d_0$prop.3^2 + d_0$position.shutter^2) >= 1] <- NA 
+
+# Define the inner and outer circles for the plotting
+oc <- data.frame(x=cos(seq(0, 2*pi, l=100)), y=sin(seq(0, 2*pi, l=100)))
+ic <- data.frame(x=0.2*cos(seq(0, 2*pi, l=50)), y=0.2*sin(seq(0, 2*pi, l=50)))
+
+# Define a character expansion for convenience
+my.cex <-0.3
+
+# Define colours for convenience
+p.cols <- viridisLite::plasma(3, end=0.8)
+
+for (i in 1:nrow(d_0)){
+
+  plot(d_0[1:i,]$prop.1, d_0[1:i,]$position.shutter,
+       panel.first = grid(), asp=1, pch=21, bg=p.cols[1], xlim=c(-1,1), ylim=c(-1,1),
+       xlab="", ylab="", axes=F, cex=my.cex, col=p.cols[1],
+       sub = paste("Shutter speed [s] = ", my.ss, ", Prop. frequency [rps] = ", my.freq, sep=""))
+
+  axis(1, seq(-1,1,by=0.5))
+  axis(2, seq(-1,1,by=0.5))
+  format
+  points(d_0[1:i,]$prop.2, d_0[1:i,]$position.shutter, pch=21, col=p.cols[2], cex=my.cex, bg=p.cols[2])
+  points(d_0[1:i,]$prop.3, d_0[1:i,]$position.shutter, pch=21, col=p.cols[3], cex=my.cex, bg=p.cols[3])
+  
+  p1 <- propPosition(init.theta = 0, time=d_0[i, "time.shutter"], prop.freq = my.freq)
+  segments(p1$x, p1$y, p1$x*-1, p1$y*-1, col=p.cols[1])
+  
+  p2 <- propPosition(init.theta=(2*pi/3), time=d_0[i, "time.shutter"], prop.freq = my.freq)
+  segments(p2$x, p2$y, p2$x*-1, p2$y*-1, col=p.cols[2])
+  
+  p3 <- propPosition(init.theta=(4*pi/3), time=d_0[i, "time.shutter"], prop.freq = my.freq)
+  segments(p3$x, p3$y, p3$x*-1, p3$y*-1, col=p.cols[3])
+  
+  # Add the central propellor circle and the outer circle
+  polygon(oc$x, oc$y, border=1, lty=2)
+  polygon(ic$x, ic$y, col=1)
+  
+  # Add the shutter line
+  abline(h=d_0[i,"position.shutter"])
+  
+  # Plot time box on the shutter line
+  # time.label <- paste0(format(round(d_0[i,"time.shutter"],3), nsmall=3), " s")
+  # sw <- strwidth(time.label)
+  # sh <- strheight(time.label)
+  # rect(0.8-(sw/2), d_0[i,"position.shutter"]-sh/2, 0.8+sw/2, 
+  #      d_0[i,"position.shutter"]+sh/2, col="white")
+  # text(x=0.8, y=d_0[i,"position.shutter"], label=time.label, cex=my.cex*1.7)
+}
+```
