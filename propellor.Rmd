@@ -135,12 +135,11 @@ Photo <- function(n.steps=1000, shutter.speed=1, prop.freq=1, plot=T){
 ```
 
 # Visualisation
-
 Using the `Photo()` function to image propellors rotating at different frequencies (at a fixed shutter speed).
 
-```{r, fig.height=6, fig.width=8}
-par(mfrow=c(2,3))
-invisible(sapply(seq(0.5, 3, 0.5), function(x) Photo(prop.freq = x)))
+```{r, fig.height=9, fig.width=9}
+par(mfrow=c(3,3))
+invisible(sapply(seq(0.5, 4.5, 0.5), function(x) Photo(prop.freq = x)))
 ```
 
 ## Animation
