@@ -1,6 +1,6 @@
 ---
-title: "The rolling shutter and the propellor"
-subtitle: A study in R
+title: "Rolling shutter: Propellor"
+author: Chris Holmes (c.holmes4@gmail.com)
 output:
   html_document:
     code_folding: show
@@ -17,20 +17,20 @@ output:
     toc: yes
 ---
 
-**It's still not quite right (discontinuity when the shutter is parallel to the propellor)...in fact, simulating it this way may never get rid of that problem....hmmmpf**
-
 ```{r, echo=F}
 knitr::opts_chunk$set(fig.align = "center")
 options(width = 1000)
 ```
+
 # Introduction
-I recently had the pleasure of flying on a **Bombardier Dash 8** plane whilst travelling to see my parents for the Christmas holidays. During that flight, I was reminded of an interetsing phenomenon that occurs when you try take a photo of an object moving at fast speeds (relative to the shutter on the camera). More specifically, when you try take a photo of an object moving at fast speeds with a camera that employs a **rolling shutter** (which is most mobile phone cameras).
+I recently had the pleasure of flying on a **Bombardier Dash 8** plane whilst travelling to see my parents for the Christmas holidays. During that flight, I was reminded of an interetsing phenomenon that occurs when you try take a photo of an object moving at fast speeds (relative to the shutter on the camera). More specifically, when you try take a photo of an object moving at fast speeds with a camera that employs a **rolling shutter**.
 
 Due to the fact that the shutter 'rolls' from one side of the picture to the other, objects that significantly change position within the time it takes for the shutter to fully 'roll' from one side to the other, tend to appear distorted in the final photograph.
 
 I was reminded of this phenomenon when I took a photograph of the propellor during the flight, seeing a 'bendy' distorted picture of the propellor blades on my phone. During the rest of the flight I started to think how to replicate this effect in simulation, with following code being the outcome.
 
-# The functions {.tabset .tabset-fade}
+# The functions {.tabset}
+
 ## `propPosition()`
 Returns a list of the `x` and `y` position of a point sitting at the end of a line of length 1 (a propellor in this case). These coordinates are returned given the angular frequency at which the propellor is spinning `prop.freq`, the starting angle (offset from posiitve y=0) `initial.theta` in radians and the time in seconds `time`.
 
@@ -57,9 +57,11 @@ ShutterSequences <- function(n.steps, shutter.time){
 }
 ```
 
-
 ## `PhotoValues()`
-Creates the positions of the points in the final 'photograph'. This function takes the shutter time and position sequences and returns the y-coordinate of the point where the 'propeller' meets the 'shutter'.
+Creates the positions of the points in the final 'photograph'. This function takes the shutter time and position sequences and returns the y-coordinate of the point where the 'propeller' meets the 'shutter'.  
+
+### Bug?
+I belive that this approach of solving for where the 'shutter' and the 'propellor' intersect creates an innacuracy. In this implementation, the condition where the propellor and the shutter are exactly parallel to oneanother has no crossing point (where in reality we would expect to see a solid line). Simulating the 'photograph' in this manner may mean there is no way to avoid this...
 
 ```{r}
 
@@ -133,30 +135,18 @@ Photo <- function(n.steps=1000, shutter.speed=1, prop.freq=1, plot=T){
 ```
 
 # Visualisation
+
 Using the `Photo()` function to image propellors rotating at different frequencies (at a fixed shutter speed).
 
-```{r, fig.height=10}
-par(mfrow=c(3,2))
-
-Photo(prop.freq=0.5)
-Photo(prop.freq=1)
-Photo(prop.freq=1.5)
-Photo(prop.freq=2)
-Photo(prop.freq=2.5)
-Photo(prop.freq=3)
+```{r, fig.height=6, fig.width=8}
+par(mfrow=c(2,3))
+invisible(sapply(seq(0.5, 3, 0.5), function(x) Photo(prop.freq = x)))
 ```
 
-# Animate
-## Animate propellor frequencies
-Animate `Photo()` through many propellor frequencies at a fixed shutter speed.
-```{r, "anim1", fig.show='animate', interval=0.05, aniopts="controls, loop", eval=T, cache=T}
-freqs <- seq(0,3,by=0.01)
-for (i in seq_along(freqs)){
-  Photo(n.steps=1000, prop.freq=freqs[i], shutter.speed = 1)}
-```
-
-## Animate shutter movement
+## Animation
 Animate the shutter moevement for a given propellor frequency and shutter speed.
+
+Set base conditions
 ```{r, "anim2", fig.show='animate', interval=0.05, aniopts="controls, loop", eval=T, cache=T}
 my.freq <- 1.5
 my.ss <- 1
@@ -178,7 +168,10 @@ my.cex <-0.3
 
 # Define colours for convenience
 p.cols <- viridisLite::plasma(3, end=0.8)
+```
 
+Loop through to create animation
+```{r, "anim", fig.show='animate', interval=0.05, aniopts="controls, loop", cache=T}
 for (i in 1:nrow(d_0)){
 
   plot(d_0[1:i,]$prop.1, d_0[1:i,]$position.shutter,
@@ -217,3 +210,9 @@ for (i in 1:nrow(d_0)){
   # text(x=0.8, y=d_0[i,"position.shutter"], label=time.label, cex=my.cex*1.7)
 }
 ```
+
+# To do
+
+* Attempt to implement a solution that does not solve for points where the propellor and the shutter cross one another (this should in theory remove the bug in this implementation where if the propellor and the shutter lie parallel to oneatnother, there is no reuslting line in the 'photograph').
+
+* When running these functions with what I believe to be realistic values of shutter speed and propellor frequencies, I dont see images like I expect to see in real photographs. This could be because my understanding of how a rolling shutter 'rolls' could be flawed (and how the shutter speed relates to the total 'roll' time), or it could be that I have just misunderstood this phenomenon in general!
